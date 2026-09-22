@@ -27,15 +27,15 @@ def get_stream_url():
     if not raw_url:
         return jsonify({"error": "URL cannot be empty"}), 400
 
+    # যেসকল ভিডিওতে আলাদা অডিও থাকে না, তাদের জন্য ফরম্যাট ফলব্যাক
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'format': 'ba/b/bestaudio/best',  # সেরা অডিও, না পেলে সেরা স্ট্রিম
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 30,
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                # প্লেয়ার রেসপন্স এক্সট্র্যাক্ট নিশ্চিত করতে mweb এবং android ক্লায়েন্ট
                 'player_client': ['mweb', 'android'],
             }
         },
@@ -45,7 +45,6 @@ def get_stream_url():
         }
     }
 
-    # কুকিজ ফাইল উপস্থিত থাকলে সংযুক্ত করা হবে
     if os.path.exists(COOKIE_PATH):
         ydl_opts['cookiefile'] = COOKIE_PATH
 
@@ -57,12 +56,17 @@ def get_stream_url():
             title = info.get('title', 'Unknown Track')
             thumbnail = info.get('thumbnail', '')
 
+            # যদি সরাসরি URL না মেলে, উপলব্ধ ফরম্যাটগুলো ফিল্টার করবে
             if not stream_url:
-                # ফরম্যাট লিস্ট থেকে অডিও স্ট্রিম ফিল্টার
                 formats = info.get('formats', [])
-                audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
-                if audio_formats:
-                    stream_url = audio_formats[-1].get('url', '')
+                # অডিও ফরম্যাট খোঁজা
+                for f in reversed(formats):
+                    if f.get('acodec') != 'none' and f.get('url'):
+                        stream_url = f.get('url')
+                        break
+                # যদি শুধু অডিও না পাওয়া যায়, তবে যেকোনো সক্রিয় স্ট্রিম ইউআরএল নেওয়া
+                if not stream_url and formats:
+                    stream_url = formats[-1].get('url', '')
 
             if not stream_url:
                 return jsonify({"error": "Direct audio stream could not be extracted."}), 500
