@@ -9,27 +9,23 @@ import base64
 import traceback
 
 app = Flask(__name__)
-
-# যেকোনো অ্যান্ড্রয়েড অ্যাপ, ওয়েবভিউ বা লোকাল ফাইল থেকে রিকোয়েস্ট পাঠানোর অনুমতি (CORS)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
 DOWNLOAD_DIR = os.path.join(BASE_DIR, "temp_audio")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# শর্ট লিংক আনপ্যাক করা (Redirect resolve)
 def resolve_final_url(url):
     try:
         req = urllib.request.Request(
             url, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'}
+            headers={'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             return response.geturl()
     except Exception:
         return url
 
-# সার্ভার সচল আছে কি না তা টেস্ট করার রুট
 @app.route('/', methods=['GET'])
 def health_check():
     return jsonify({
@@ -52,6 +48,7 @@ def convert_video():
     file_id = str(uuid.uuid4())
     output_template = os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s")
 
+    # Render-এর Datacenter IP ব্লকিং বাইপাস করার কনফিগারেশন
     ydl_opts = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'outtmpl': output_template,
@@ -60,11 +57,14 @@ def convert_video():
         'socket_timeout': 35,
         'retries': 5,
         'nocheckcertificate': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios']
+            }
+        },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Sec-Fetch-Mode': 'navigate',
         }
     }
 
@@ -80,7 +80,7 @@ def convert_video():
 
             audio_path = downloaded_files[0]
 
-        # থাম্বনেইল Base64 এ কনভার্ট
+        # থাম্বনেইল Base64 করা
         thumb_b64 = ""
         if thumb_url:
             try:
@@ -93,11 +93,10 @@ def convert_video():
             except Exception:
                 thumb_b64 = ""
 
-        # অডিও ফাইল Base64 এ কনভার্ট
+        # অডিও Base64 করা
         with open(audio_path, "rb") as f:
             audio_b64 = base64.b64encode(f.read()).decode('utf-8')
 
-        # মেমরি ক্লিয়ার রাখতে টেম্প ফাইল ডিলিট
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
