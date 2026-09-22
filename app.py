@@ -33,9 +33,19 @@ def get_stream_url():
         'no_warnings': True,
         'socket_timeout': 25,
         'nocheckcertificate': True,
+        # 'The page needs to be reloaded' এড়াতে মোবাইল ক্লায়েন্ট ফোর্স করা
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios'],
+                'player_skip': ['webpage', 'configs']
+            }
+        },
+        'http_headers': {
+            'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 14; US) gzip',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
     }
 
-    # কুকিজ ফাইল থাকলে স্বয়ংক্রিয়ভাবে ব্যবহার করবে
     if os.path.exists(COOKIE_PATH):
         ydl_opts['cookiefile'] = COOKIE_PATH
 
