@@ -5,15 +5,16 @@ import traceback
 import os
 
 app = Flask(__name__)
-# যেকোনো মোবাইল অ্যাপ বা ফ্রন্টএন্ড থেকে কল করার অনুমতি
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+COOKIE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
 
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({
         "status": "online",
         "service": "Music Stream URL Extractor",
-        "message": "API backend is active."
+        "cookies_loaded": os.path.exists(COOKIE_PATH)
     }), 200
 
 @app.route('/convert', methods=['POST'])
@@ -26,29 +27,22 @@ def get_stream_url():
     if not raw_url:
         return jsonify({"error": "URL cannot be empty"}), 400
 
-    # এখানে কোনো ফাইল ডাউনলোড হবে না, শুধু ডিরেক্ট স্ট্রিম লিংক বের করা হবে
     ydl_opts = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'quiet': True,
         'no_warnings': True,
-        'socket_timeout': 15,
+        'socket_timeout': 25,
         'nocheckcertificate': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios']
-            }
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
-        }
     }
+
+    # কুকিজ ফাইল থাকলে স্বয়ংক্রিয়ভাবে ব্যবহার করবে
+    if os.path.exists(COOKIE_PATH):
+        ydl_opts['cookiefile'] = COOKIE_PATH
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # download=False দেওয়া হয়েছে যাতে রেন্ডার সার্ভারে ডাউনলোড না হয়
             info = ydl.extract_info(raw_url, download=False)
             
-            # সরাসরি অডিও স্ট্রিমিং লিংক নেওয়া হচ্ছে
             stream_url = info.get('url', '')
             title = info.get('title', 'Unknown Track')
             thumbnail = info.get('thumbnail', '')
